@@ -65,9 +65,9 @@ static void setup() {
     gpio_setup();
     sys_tick_setup();
     spi_setup();
-    rfm69_setup();
     rtc_setup();
     usart_setup(USART_SPEED);
+    rfm69_setup();
 }
 
 static void deep_sleep() {

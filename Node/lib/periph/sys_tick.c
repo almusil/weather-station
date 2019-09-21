@@ -2,8 +2,6 @@
 
 static volatile uint64_t millis;
 
-void sys_tick_handler(void);
-
 void sys_tick_setup(void) {
     millis = 0;
 

@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/cm3/systick.h>
+#include <libopencm3/cm3/nvic.h>
 
 #ifndef WEATHER_STATION_SYS_TICK_H
 #define WEATHER_STATION_SYS_TICK_H
