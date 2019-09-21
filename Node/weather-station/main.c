@@ -52,6 +52,9 @@ static void gpio_setup() {
     gpio_mode_setup(RFM69_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, RFM69_NSS);
     gpio_set(RFM69_PORT, RFM69_NSS);
 
+    /* RFM69 interrupt setup */
+    gpio_mode_setup(RFM69_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, RFM69_INT);
+
     /* USART GPIO setup */
     gpio_mode_setup(USART_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, USART_TX | USART_RX);
     gpio_set_af(USART_PORT, GPIO_AF4, USART_TX | USART_RX);
@@ -77,12 +80,14 @@ static void before_sleep() {
     sys_tick_disable();
     usart_interrupt_disable();
     rtc_wakeup_setup(SLEEP_TIME);
+    rfm69_sleep();
 }
 
 static void after_wakeup() {
     rtc_disable();
     sys_tick_enable();
     usart_interrupt_enable();
+    rfm69_wakeup();
     printf("Back from sleep!\n");
 }
 
