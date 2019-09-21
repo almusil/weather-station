@@ -18,3 +18,12 @@ void spi_setup() {
     spi_set_full_duplex_mode(SPI);
     spi_enable(SPI);
 }
+
+void spi_lib_enable() {
+    spi_enable(SPI);
+}
+
+void spi_lib_disable() {
+    while (SPI_SR(SPI) & SPI_SR_BSY);
+    spi_disable(SPI);
+}

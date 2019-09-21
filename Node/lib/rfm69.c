@@ -38,7 +38,6 @@ static void spi_chip_unselect() {
 }
 
 void rfm69_setup() {
-    spi_setup();
     rfm69_interrupt_setup();
 }
 
