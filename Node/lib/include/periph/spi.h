@@ -12,4 +12,9 @@
 
 void spi_setup(void);
 
+// TODO figure out better name
+void spi_lib_disable(void);
+
+void spi_lib_enable(void);
+
 #endif //WEATHER_STATION_SPI_H

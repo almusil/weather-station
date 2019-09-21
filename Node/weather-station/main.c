@@ -64,6 +64,7 @@ static void setup() {
     clock_setup();
     gpio_setup();
     sys_tick_setup();
+    spi_setup();
     rfm69_setup();
     rtc_setup();
     usart_setup(USART_SPEED);
@@ -81,12 +82,14 @@ static void before_sleep() {
     usart_interrupt_disable();
     rtc_wakeup_setup(SLEEP_TIME);
     rfm69_sleep();
+    spi_lib_disable();
 }
 
 static void after_wakeup() {
     rtc_disable();
     sys_tick_enable();
     usart_interrupt_enable();
+    spi_lib_enable();
     rfm69_wakeup();
     printf("Back from sleep!\n");
 }
