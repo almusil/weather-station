@@ -46,12 +46,13 @@ void usart2_isr() {
     print_char(temp);
 }
 
-static void print_char(char data) {
-    if (data == '\n') {
-        usart_send_blocking(USART_CONSOLE, '\r');
+int _write(int file, char *ptr, int len) {
+    int i;
+    if (file == STDOUT_FILENO || file == STDERR_FILENO) {
+        return print(ptr, len);
     }
-    usart_send_blocking(USART_CONSOLE, data);
-    while (!(USART_ISR(USART_CONSOLE) & USART_ISR_TC));
+    errno = EIO;
+    return -1;
 }
 
 void println(char *str) {
@@ -67,11 +68,10 @@ static int print(char *str, int len) {
     return i;
 }
 
-int _write(int file, char *ptr, int len) {
-    int i;
-    if (file == STDOUT_FILENO || file == STDERR_FILENO) {
-        return print(ptr, len);
+static void print_char(char data) {
+    if (data == '\n') {
+        usart_send_blocking(USART_CONSOLE, '\r');
     }
-    errno = EIO;
-    return -1;
+    usart_send_blocking(USART_CONSOLE, data);
+    while (!(USART_ISR(USART_CONSOLE) & USART_ISR_TC));
 }
