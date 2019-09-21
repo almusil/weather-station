@@ -13,6 +13,7 @@ static void spi_chip_select() {
 }
 
 static void spi_chip_unselect() {
+    while (SPI_SR(SPI) & SPI_SR_BSY);
     gpio_set(RFM69_PORT, RFM69_NSS);
 }
 
@@ -22,7 +23,8 @@ void rfm69_setup() {
 
 static uint8_t read_reg(uint8_t addr) {
     spi_chip_select();
-    uint8_t val = spi_transfer(addr & 0x7f);
+    spi_xfer(SPI, addr & 0x7f);
+    uint8_t val = spi_xfer(SPI, 0);
     spi_chip_unselect();
 
     return val;
@@ -34,8 +36,8 @@ static void write_reg(uint8_t addr, uint8_t val) {
     }
 
     spi_chip_select();
-    spi_transfer(addr | 0x80);
-    spi_transfer(val);
+    spi_xfer(SPI, addr | 0x80);
+    spi_xfer(SPI, val);
     spi_chip_unselect();
 }
 

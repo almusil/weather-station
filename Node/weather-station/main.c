@@ -48,9 +48,9 @@ static void gpio_setup() {
     gpio_set_output_options(SPI_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_VERYHIGH, SPI_SCK | SPI_MISO | SPI_MOSI);
     gpio_set_af(SPI_PORT, GPIO_AF0, SPI_SCK | SPI_MISO | SPI_MOSI);
 
-    gpio_clear(SPI_PORT, SPI_NSS);
-    gpio_mode_setup(SPI_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, SPI_NSS);
-    gpio_set(SPI_PORT, SPI_NSS);
+    gpio_clear(RFM69_PORT, RFM69_NSS);
+    gpio_mode_setup(RFM69_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, RFM69_NSS);
+    gpio_set(RFM69_PORT, RFM69_NSS);
 
     /* USART GPIO setup */
     gpio_mode_setup(USART_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, USART_TX | USART_RX);
