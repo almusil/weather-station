@@ -1,5 +1,7 @@
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/spi.h>
+#include <libopencm3/stm32/exti.h>
+#include <libopencm3/cm3/nvic.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -10,9 +12,14 @@
 
 #define RFM69_PORT GPIOA
 #define RFM69_NSS GPIO4
+#define RFM69_INT GPIO1
 
 void rfm69_setup(void);
 
 void rfm69_read_all_regs(void);
+
+void rfm69_sleep(void);
+
+void rfm69_wakeup(void);
 
 #endif //WEATHER_STATION_RFM69_H
