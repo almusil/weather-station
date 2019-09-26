@@ -4,6 +4,7 @@
 #include <libopencm3/cm3/nvic.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "periph/spi.h"
 #include "periph/sys_tick.h"
