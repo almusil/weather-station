@@ -1,5 +1,4 @@
 #include "include/rfm69.h"
-#include "include/rfm69_defs.h"
 
 enum rfm69_mode {
     STANDBY = 1,
@@ -11,6 +10,11 @@ enum rfm69_mode {
 
 struct state {
     enum rfm69_mode mode;
+    uint8_t payload_len;
+    bool data_available;
+    bool ack_received;
+    bool ack_requested;
+    struct rfm69_packet packet;
 };
 
 static struct state current_state;
@@ -28,6 +32,18 @@ static void rfm69_interrupt_setup(void);
 static void rfm69_interrupt_disable(void);
 
 static void rfm69_set_mode(enum rfm69_mode mode);
+
+static void rfm69_avoid_rx_deadlocks(void);
+
+static bool rfm69_can_send(void);
+
+static int16_t rfm69_read_rssi(void);
+
+static void rfm69_send_frame(uint8_t to_addr, const void *buffer, uint8_t len, bool request_ack, bool send_ack);
+
+static void rfm69_interrupt_handler(void);
+
+static void rfm69_receive_begin(void);
 
 static const uint8_t CONFIG[][2] =
         {
@@ -131,7 +147,7 @@ void rfm69_encryption_key(const char *key) {
 }
 
 static void rfm69_set_mode(enum rfm69_mode mode) {
-    if(current_state.mode == mode) {
+    if (current_state.mode == mode) {
         return;
     }
 
@@ -167,6 +183,159 @@ void rfm69_sleep() {
 void rfm69_wakeup() {
     rfm69_interrupt_setup();
     rfm69_set_mode(STANDBY);
+}
+
+void rfm69_send(uint8_t to_addr, const void *buffer, uint8_t len, bool request_ack) {
+    rfm69_avoid_rx_deadlocks();
+    uint64_t now = get_millis();
+    while (!rfm69_can_send() && get_millis() - now < RF69_CSMA_LIMIT_MS) {
+        rfm69_receive_done();
+    }
+    rfm69_send_frame(to_addr, buffer, len, request_ack, false);
+}
+
+bool rfm69_receive_done() {
+    if (current_state.data_available) {
+        current_state.data_available = false;
+        rfm69_interrupt_handler();
+    }
+    if (current_state.mode == RX && current_state.payload_len > 0) {
+        rfm69_set_mode(STANDBY); // enables interrupts
+        return true;
+    } else if (current_state.mode == RX) {
+        return false;
+    }
+    rfm69_receive_begin();
+    return false;
+}
+
+bool rfm69_ack_requested() {
+    return current_state.ack_requested;
+}
+
+void rfm69_send_ack() {
+    rfm69_avoid_rx_deadlocks();
+    uint64_t now = get_millis();
+    while (!rfm69_can_send() && get_millis() - now < RF69_CSMA_LIMIT_MS) {
+        rfm69_receive_done();
+    }
+    rfm69_send_frame(current_state.packet.sender_id, NULL, 0, false, true);
+}
+
+void rfm69_get_data(struct rfm69_packet *packet) {
+    memcpy(packet, &current_state.packet, sizeof(struct rfm69_packet));
+}
+
+bool rfm69_ack_received(uint8_t from_addr) {
+    if (rfm69_receive_done()) {
+        return (current_state.packet.sender_id == from_addr && current_state.ack_received);
+    }
+    return false;
+}
+
+static void rfm69_send_frame(uint8_t to_addr, const void *buffer, uint8_t len, bool request_ack, bool send_ack) {
+    rfm69_set_mode(STANDBY);
+    while ((read_reg(REG_IRQFLAGS1) & RF_IRQFLAGS1_MODEREADY) == 0x00);
+
+    if (len > RF69_MAX_DATA_LEN) {
+        len = RF69_MAX_DATA_LEN;
+    }
+
+    // control byte
+    uint8_t ctl_byte = 0x00;
+    if (send_ack) {
+        ctl_byte = RFM69_CTL_SENDACK;
+    } else if (request_ack) {
+        ctl_byte = RFM69_CTL_REQACK;
+    }
+
+    // write to FIFO
+    spi_chip_select();
+    spi_xfer(SPI, REG_FIFO | 0x80);
+    spi_xfer(SPI, len + 3);
+    spi_xfer(SPI, to_addr);
+    spi_xfer(SPI, NODE_ADDR);
+    spi_xfer(SPI, ctl_byte);
+
+    for (uint8_t i = 0; i < len; i++) {
+        spi_xfer(SPI, ((uint8_t *) buffer)[i]);
+    }
+    spi_chip_unselect();
+
+
+    rfm69_set_mode(TX);
+    uint64_t tx_start = get_millis();
+
+    while ((read_reg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PACKETSENT) == 0x00);
+    rfm69_set_mode(STANDBY);
+}
+
+static void rfm69_interrupt_handler() {
+    if (current_state.mode == RX && (read_reg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY)) {
+        rfm69_set_mode(STANDBY);
+        spi_chip_select();
+        spi_xfer(SPI, REG_FIFO & 0x7F);
+        uint8_t payload_len = spi_xfer(SPI, 0);
+        payload_len = payload_len > 66 ? 66 : payload_len;
+        current_state.payload_len = payload_len;
+        current_state.packet.target_id = spi_xfer(SPI, 0);
+        current_state.packet.sender_id = spi_xfer(SPI, 0);
+        uint8_t ctl_byte = spi_xfer(SPI, 0);
+
+        if (payload_len < 3) {
+            current_state.payload_len = 0;
+            spi_chip_unselect();
+            rfm69_receive_begin();
+            return;
+        }
+
+        current_state.packet.data_len = payload_len - 3;
+        current_state.ack_received = ctl_byte & RFM69_CTL_SENDACK;
+        current_state.ack_requested = ctl_byte & RFM69_CTL_REQACK;
+
+        for (uint8_t i = 0; i < current_state.packet.data_len; i++) {
+            current_state.packet.data_buffer[i] = spi_xfer(SPI, 0);
+        }
+
+        current_state.packet.data_buffer[current_state.packet.data_len] = '\0';
+        spi_chip_unselect();
+        rfm69_set_mode(RX);
+    }
+}
+
+static void rfm69_receive_begin() {
+    current_state.packet.data_len = 0;
+    current_state.packet.sender_id = 0;
+    current_state.packet.target_id = 0;
+    current_state.payload_len = 0;
+    current_state.ack_requested = 0;
+    current_state.ack_received = 0;
+    memset(current_state.packet.data_buffer, 0, RF69_MAX_DATA_LEN + 1);
+    if (read_reg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY) {
+        rfm69_avoid_rx_deadlocks();
+    }
+
+    write_reg(REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_01);
+    rfm69_set_mode(RX);
+}
+
+static void rfm69_avoid_rx_deadlocks() {
+    write_reg(REG_PACKETCONFIG2, (read_reg(REG_PACKETCONFIG2) & 0xFB) | RF_PACKET2_RXRESTART);
+}
+
+static bool rfm69_can_send() {
+    if (current_state.mode == RX && current_state.payload_len == 0 && rfm69_read_rssi() < CSMA_LIMIT) {
+        rfm69_set_mode(STANDBY);
+        return true;
+    }
+    return false;
+}
+
+static int16_t rfm69_read_rssi() {
+    int16_t rssi = 0;
+    rssi = -read_reg(REG_RSSIVALUE);
+    rssi >>= 1;
+    return rssi;
 }
 
 static uint8_t read_reg(uint8_t addr) {
@@ -215,6 +384,5 @@ static void spi_chip_unselect() {
 
 void exti0_1_isr() {
     exti_reset_request(EXTI1);
-    // Handle interrupt
-    printf("Interrupt incoming!\n");
+    current_state.data_available = true;
 }
