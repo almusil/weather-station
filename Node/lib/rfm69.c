@@ -2,12 +2,18 @@
 #include "include/rfm69_defs.h"
 
 enum rfm69_mode {
-    STANDBY,
+    STANDBY = 1,
     TX,
     RX,
     SYNTH,
     SLEEP
 };
+
+struct state {
+    enum rfm69_mode mode;
+};
+
+static struct state current_state;
 
 static uint8_t read_reg(uint8_t addr);
 
@@ -77,6 +83,7 @@ static const uint8_t CONFIG[][2] =
         };
 
 void rfm69_setup() {
+    memset(&current_state, 0, sizeof(struct state));
     rfm69_interrupt_setup();
 
     //Wait for sync
@@ -124,6 +131,10 @@ void rfm69_encryption_key(const char *key) {
 }
 
 static void rfm69_set_mode(enum rfm69_mode mode) {
+    if(current_state.mode == mode) {
+        return;
+    }
+
     switch (mode) {
         case TX:
             write_reg(REG_OPMODE, (read_reg(REG_OPMODE) & 0xE3) | RF_OPMODE_TRANSMITTER);
@@ -141,16 +152,21 @@ static void rfm69_set_mode(enum rfm69_mode mode) {
             write_reg(REG_OPMODE, (read_reg(REG_OPMODE) & 0xE3) | RF_OPMODE_SLEEP);
             break;
     }
+
+    // Wait for proper wakeup from sleep
+    while (current_state.mode == SLEEP && (read_reg(REG_IRQFLAGS1) & RF_IRQFLAGS1_MODEREADY) == 0x00);
+
+    current_state.mode = mode;
 }
 
 void rfm69_sleep() {
     rfm69_interrupt_disable();
-    //TODO Set rfm69 to sleep
+    rfm69_set_mode(SLEEP);
 }
 
 void rfm69_wakeup() {
     rfm69_interrupt_setup();
-    //TODO Wakeup rfm69
+    rfm69_set_mode(STANDBY);
 }
 
 static uint8_t read_reg(uint8_t addr) {
