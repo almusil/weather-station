@@ -7,6 +7,7 @@
 #include <periph/low_power.h>
 #include <periph/spi.h>
 #include <periph/usart.h>
+#include <periph/adc.h>
 #include <rfm69.h>
 
 #define SLEEP_TIME 30
@@ -36,9 +37,11 @@ static void clock_setup() {
     rcc_apb2_frequency = 16e6;
 
     rcc_periph_clock_enable(RCC_GPIOA);
+    rcc_periph_clock_enable(RCC_GPIOB);
     rcc_periph_clock_enable(SPI_CLOCK);
     rcc_periph_clock_enable(RCC_PWR);
     rcc_periph_clock_enable(USART_CLOCK);
+    rcc_periph_clock_enable(ADC_CLOCK);
 }
 
 
@@ -58,6 +61,10 @@ static void gpio_setup() {
     /* USART GPIO setup */
     gpio_mode_setup(USART_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, USART_TX | USART_RX);
     gpio_set_af(USART_PORT, GPIO_AF4, USART_TX | USART_RX);
+
+    /* ADC GPIO setup */
+    gpio_mode_setup(ADC_PORT1, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, A0 | A1);
+    gpio_mode_setup(ADC_PORT2, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, BAT_ADC | A2);
 }
 
 static void setup() {
@@ -68,6 +75,7 @@ static void setup() {
     rtc_setup();
     usart_setup(USART_SPEED);
     rfm69_setup();
+    adc_setup();
 }
 
 static void deep_sleep() {
