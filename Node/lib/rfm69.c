@@ -364,13 +364,13 @@ static void rfm69_interrupt_setup() {
     exti_set_trigger(RFM69_INT, EXTI_TRIGGER_RISING);
     exti_reset_request(RFM69_INT);
 
-    nvic_enable_irq(NVIC_EXTI0_1_IRQ);
-    exti_enable_request(EXTI1);
+    nvic_enable_irq(RFM69_NVIC_IRQ);
+    exti_enable_request(RFM69_EXTI_LINE);
 }
 
 static void rfm69_interrupt_disable() {
-    nvic_disable_irq(NVIC_EXTI0_1_IRQ);
-    exti_disable_request(EXTI1);
+    nvic_disable_irq(RFM69_NVIC_IRQ);
+    exti_disable_request(RFM69_EXTI_LINE);
 }
 
 static void spi_chip_select() {
@@ -382,7 +382,7 @@ static void spi_chip_unselect() {
     gpio_set(RFM69_PORT, RFM69_NSS);
 }
 
-void exti0_1_isr() {
-    exti_reset_request(EXTI1);
+void exti4_15_isr() {
+    exti_reset_request(RFM69_EXTI_LINE);
     current_state.data_available = true;
 }
