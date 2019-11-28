@@ -1,4 +1,4 @@
-PROJECT = weather-station
+PROJECT = node
 BUILD_DIR = bin
 
 # Path to init file
@@ -18,7 +18,7 @@ OOCD_FILE = target/stm32l0.cfg
 
 VPATH += $(SHARED_DIR)
 INCLUDES += $(patsubst %,-I%, . $(INCLUDE_DIR))
-OPENCM3_DIR=../libopencm3
+OPENCM3_DIR ?=../libopencm3
 
 include $(OPENCM3_DIR)/mk/genlink-config.mk
 include ../rules.mk
