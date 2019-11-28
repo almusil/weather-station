@@ -1,0 +1,31 @@
+FROM centos:8
+
+# Create workdir
+RUN mkdir workspace
+WORKDIR workspace
+
+ENV PREFIX /workspace/bin/arm-none-eabi-
+ENV OPENCM3_DIR /workspace/libopencm3
+
+# Add all build dependencies
+RUN dnf -y install \
+    git \
+    python3 \
+    && \
+    dnf -y group install "Development Tools"
+
+# Install specified version of GCC arm toolchain
+RUN curl -sf -o gcc-arm-none-eabi-latest.tar.bz2 \
+    -L https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/RC2.1/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2?revision=6e63531f-8cb1-40b9-bbfc-8a57cdfc01b4 \
+    && \
+    tar xjf gcc-arm-none-eabi-latest.tar.bz2 --strip 1
+
+# Configure unversioned python
+RUN alternatives --set python /usr/bin/python3
+
+# Compile latest version of libopencm3
+RUN git clone https://github.com/libopencm3/libopencm3.git \
+    && \
+    make clean all -C libopencm3
+
+CMD ["/usr/sbin/init"]
