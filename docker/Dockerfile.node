@@ -12,7 +12,9 @@ RUN dnf -y install \
     git \
     python3 \
     && \
-    dnf -y group install "Development Tools"
+    dnf -y group install "Development Tools" \
+    && \
+    dnf clean all
 
 # Install specified version of GCC arm toolchain
 RUN curl -sf -o gcc-arm-none-eabi-latest.tar.bz2 \
