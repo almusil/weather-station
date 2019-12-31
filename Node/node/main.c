@@ -8,9 +8,16 @@
 #include <periph/spi.h>
 #include <periph/usart.h>
 #include <periph/adc.h>
+#include <periph/gpio.h>
+#include <config.h>
 #include <rfm69.h>
 
-#define SLEEP_TIME 30
+static struct config conf = {
+        .sleep_time = 10,
+        .dio_direction = 0x00,
+        .dio_value = 0x00,
+        .analog = BAT_CHANNEL
+};
 
 static void clock_setup(void);
 
@@ -23,6 +30,12 @@ static void deep_sleep(void);
 static void before_sleep(void);
 
 static void after_wakeup(void);
+
+static bool packet_received(void);
+
+static void update_config(void);
+
+static void send_measured_data(void);
 
 static void clock_setup() {
     //Setup clock to internal 16MHz
@@ -76,6 +89,7 @@ static void setup() {
     usart_setup(USART_SPEED);
     rfm69_setup();
     adc_setup();
+    gpio_dio_setup(conf.dio_direction, conf.dio_value);
 }
 
 static void deep_sleep() {
@@ -88,7 +102,7 @@ static void before_sleep() {
     printf("Going to sleep!\n");
     sys_tick_disable();
     usart_interrupt_disable();
-    rtc_wakeup_setup(SLEEP_TIME);
+    rtc_wakeup_setup(conf.sleep_time);
     rfm69_sleep();
     spi_lib_disable();
 }
@@ -102,11 +116,73 @@ static void after_wakeup() {
     printf("Back from sleep!\n");
 }
 
+static bool packet_received() {
+    uint64_t now = get_millis();
+    bool done = rfm69_receive_done();
+    while (!done && get_millis() - now < CONFIG_TIMEOUT) {
+        done = rfm69_receive_done();
+    }
+    printf("Received %d!\n", done);
+    return done;
+}
+
+static void update_config() {
+    struct rfm69_packet packet = {0};
+    rfm69_get_data(&packet);
+    if (packet.sender_id == GATEWAY_ADDR &&
+        packet.target_id == NODE_ADDR &&
+        packet.data_len == CONFIG_LENGTH + 1 &&
+        packet.data_buffer[0] == PACKET_CONFIG) {
+        // Update conf
+        conf.sleep_time = (packet.data_buffer[1] << 8) | packet.data_buffer[2];
+        conf.dio_direction = packet.data_buffer[3];
+        conf.dio_value = packet.data_buffer[4];
+        conf.analog = (packet.data_buffer[4] & 0x07) | BAT_CHANNEL;
+
+        // Call gpio_setup
+        gpio_dio_setup(conf.dio_direction, conf.dio_value);
+        printf("Got new config!\n");
+    }
+}
+
+static void send_measured_data() {
+    printf("Sending measured data!\n");
+    uint8_t data[10] = {0};
+    uint16_t adc[4] = {0};
+
+    adc_convert(conf.analog, adc, 4);
+    data[0] = PACKET_DATA;
+    data[1] = read_gpio_value();
+
+    for (uint8_t i = 0; i < 4; i++) {
+        data[2 + i * 2] = (adc[i] >> 8);
+        data[3 + i * 2] = (adc[i] & 0xff);
+    }
+
+    for (uint8_t i = 0; i < ACK_RETRY_COUNT; i++) {
+        rfm69_send(GATEWAY_ADDR, &data, 10, true);
+        uint64_t now = get_millis();
+        bool done = rfm69_ack_received(GATEWAY_ADDR);
+        while (!done && get_millis() - now < ACK_TIMEOUT) {
+            done = rfm69_ack_received(GATEWAY_ADDR);
+        }
+        if (done) {
+            printf("Got ACK!\n");
+            break;
+        }
+    }
+}
+
 int main(void) {
     setup();
-    rfm69_read_all_regs();
     while (1) {
-        delay(2000);
+        uint8_t buffer = {PACKET_CONFIG};
+        rfm69_send(GATEWAY_ADDR, &buffer, 1, false);
+        bool new_packet = packet_received();
+        if (new_packet) {
+            update_config();
+        }
+        send_measured_data();
         deep_sleep();
     }
 }
