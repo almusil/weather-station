@@ -1,5 +1,7 @@
-use crate::util::{CS_NAME, CS_PIN_NUM, GPIO_CHIP, PACKET_CONFIG, PACKET_DATA, SPI_DEV};
-use crate::{Config, Receiver, Shared};
+use crate::config::Config;
+use crate::util::{
+    Receiver, Shared, CS_NAME, CS_PIN_NUM, GPIO_CHIP, PACKET_CONFIG, PACKET_DATA, SPI_DEV,
+};
 use async_std::sync::{Arc, Mutex};
 use async_std::task::{block_on, spawn_blocking};
 use futures::channel::mpsc;
