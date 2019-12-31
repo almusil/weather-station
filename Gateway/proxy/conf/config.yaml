@@ -1,0 +1,45 @@
+---
+gateway_addr: 1
+network_id: 100
+node:
+  sleep_time: 10
+  node_addr: 10
+  digital:
+    D0:
+      type: Input
+      number: 0
+    D1:
+      type: Output
+      number: 1
+      state: true
+    D2:
+      type: Input
+      number: 2
+    D3:
+      type: Output
+      number: 3
+      state: false
+    D4:
+      type: Input
+      number: 4
+    D5:
+      type: Output
+      number: 5
+      state: true
+    D6:
+      type: Input
+      number: 6
+    D7:
+      type: Output
+      number: 7
+      state: false
+  analog:
+    A0:
+      number: 0
+      enabled: false
+    A1:
+      number: 1
+      enabled: false
+    A2:
+      number: 2
+      enabled: false

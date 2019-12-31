@@ -1,0 +1,48 @@
+FROM arm32v7/rust:slim-stretch AS builder
+
+# Set nightly toolchain
+RUN rustup toolchain install nightly \
+    && \
+    rustup default nightly
+
+# Add mosquitto-dev as build dependency
+RUN apt-get update \
+    && \
+    apt-get -y install \
+    clang \
+    cmake \
+    libclang-dev \
+    llvm-dev \
+    libssl-dev
+
+
+WORKDIR /workspace/proxy
+
+# Copy MQTT client
+COPY ./Gateway/proxy/. .
+
+# Compile proxy project
+RUN cargo build --release
+
+FROM arm32v7/debian:stretch-slim
+
+# Install dependencies
+RUN apt-get update \
+    && \
+    apt-get -y install \
+    libssl
+
+# Create groups for gpio and spi
+RUN groupadd -g 1000 proxy1000 \
+    && \
+    groupadd -g 997 gpio \
+    && \
+    groupadd -g 999 spi \
+    && \
+    useradd -u 1000 -g proxy1000 -G gpio,spi proxy1000
+
+USER proxy1000
+
+COPY --from=builder /workspace/proxy/target/release/proxy /usr/local/bin/proxy
+
+CMD ["proxy"]
