@@ -1,0 +1,21 @@
+[package]
+name = "proxy"
+version = "0.1.0"
+authors = ["Ales Musil <aedvin1@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+linux-embedded-hal = { git = "https://github.com/almusil/linux-embedded-hal", branch = "cdev_sysfs_module", features = ["gpio_cdev"] }
+
+async-std =  { version = "1.4", features = ["unstable", "attributes"] }
+ctrlc = { version = "3.1", features = ["termination"] }
+serde = { version = "1.0", features = ["derive"] }
+futures = { version = "0.3", features = ["compat"] }
+paho-mqtt = { version = "0.6", features = ["build_bindgen"] }
+
+rfm69 = "0.2"
+serde_yaml = "0.8"
+serde_json = "1.0"
+
