@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use crate::util::{BATTERY_CONFIG_TOPIC, BATTERY_SENSOR, PAYLOAD_OFF, PAYLOAD_ON};
 use async_std::fs::File;
 use futures::AsyncReadExt;
@@ -52,7 +53,7 @@ impl Node {
         self.config_dirty = dirty;
     }
 
-    pub fn update_output(&mut self, topic: &str, new_state: bool) {
+    pub fn update_output(&mut self, topic: &str, new_state: bool) -> Result<()> {
         let pin = self
             .digital
             .values_mut()
@@ -62,12 +63,13 @@ impl Node {
                 }
                 false
             })
-            .unwrap();
+            .ok_or_else(|| Error::new_option("Cannot find pin to update."))?;
 
         if let DigitalPin::Output { state, .. } = pin {
             *state = new_state;
         }
         self.update_config_dirty(true);
+        Ok(())
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -293,13 +295,13 @@ pub enum Discovery<'a, 'b> {
     },
 }
 
-pub async fn read_conf(path: &str) -> Config {
-    let mut conf_file = File::open(path).await.unwrap();
+pub async fn read_conf(path: &str) -> Result<Config> {
+    let mut conf_file = File::open(path).await?;
     let mut conf_content = String::new();
-    conf_file.read_to_string(&mut conf_content).await.unwrap();
-    let mut config = serde_yaml::from_str::<Config>(&conf_content).unwrap();
+    conf_file.read_to_string(&mut conf_content).await?;
+    let mut config = serde_yaml::from_str::<Config>(&conf_content)?;
     config.node.update_config_dirty(true);
     config.node.init_mqtt_topic();
     println!("{:?}", config);
-    config
+    Ok(config)
 }

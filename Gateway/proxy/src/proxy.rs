@@ -1,10 +1,12 @@
 use crate::config::{read_conf, Config};
+use crate::error::{Error, Result};
 use crate::home_assistant::HomeAssistant;
 use crate::radio::Radio;
 use crate::util::{Receiver, Shared, PAYLOAD_ON};
 use async_std::sync::{Arc, Mutex};
 use futures::{select, FutureExt, StreamExt};
 use paho_mqtt::Message;
+use std::result::Result as StdResult;
 
 pub struct Proxy {
     conf: Shared<Config>,
@@ -14,30 +16,30 @@ pub struct Proxy {
 }
 
 impl Proxy {
-    pub async fn new(conf_path: &str, shutdown: Receiver<bool>) -> Self {
-        let conf = new_shared!(read_conf(conf_path).await);
-        let radio = Radio::new(conf.clone());
-        let mqtt = HomeAssistant::new(conf.clone()).await;
-        Proxy {
+    pub async fn new(conf_path: &str, shutdown: Receiver<bool>) -> Result<Self> {
+        let conf = new_shared!(read_conf(conf_path).await?);
+        let radio = Radio::new(conf.clone())?;
+        let mqtt = HomeAssistant::new(conf.clone()).await?;
+        Ok(Proxy {
             conf,
             shutdown,
             radio,
             mqtt,
-        }
+        })
     }
 
-    pub async fn main_loop(&mut self) {
+    pub async fn main_loop(&mut self) -> Result<()> {
         let mut shutdown = (&mut self.shutdown).fuse();
         let mut receiver = self.radio.receiver_channel();
         let mut mqtt_receiver = self.mqtt.stream().fuse();
         loop {
             select! {
                 opt = receiver.next().fuse() => match opt {
-                    Some(buffer) => self.mqtt.update_state(&buffer).await,
+                    Some(buffer) => self.mqtt.update_state(&buffer).await?,
                     None => println!("Radio channel is closed"),
                 },
                 option = mqtt_receiver.next().fuse() => {
-                    helper_mqtt_config(self.conf.clone(), option).await
+                    helper_mqtt_config(self.conf.clone(), option).await?
                 },
                 sig =  shutdown.next().fuse() => match sig {
                     Some(_) => break,
@@ -47,28 +49,32 @@ impl Proxy {
         }
         receiver.close();
         println!("Main loop exit");
+        Ok(())
     }
 }
 
 async fn helper_mqtt_config(
     shared_conf: Shared<Config>,
-    wrapper: Option<Result<Option<Message>, ()>>,
-) {
+    wrapper: Option<StdResult<Option<Message>, ()>>,
+) -> Result<()> {
     match wrapper {
         Some(result) => {
             if result.is_err() {
                 println!("MQTT stream error");
-                return;
+                return Ok(());
             }
-            let message = result.unwrap().unwrap();
+            let message = result
+                .map_err(|()| Error::new_result("MQTT message error, hint Result"))?
+                .ok_or_else(|| Error::new_option("MQTT message error"))?;
             let mut conf = shared_conf.lock().await;
             let payload = message.payload_str();
             if payload.len() == 1 {
                 conf.node_mut()
-                    .update_output(message.topic(), payload == PAYLOAD_ON)
+                    .update_output(message.topic(), payload == PAYLOAD_ON)?;
             }
             println!("Message {:?}", message);
         }
         None => println!("MQTT channel is closed"),
     }
+    Ok(())
 }

@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::error::Result;
 use crate::util::{
     Receiver, Shared, CS_NAME, CS_PIN_NUM, GPIO_CHIP, PACKET_CONFIG, PACKET_DATA, SPI_DEV,
 };
@@ -15,33 +16,32 @@ use rfm69::{low_power_lab_defaults, Rfm69};
 struct RfmWrapper(Rfm69<Pin, Spidev, Delay>, u8);
 
 impl RfmWrapper {
-    fn new(network_id: u8, gateway_addr: u8) -> Self {
-        let spi = configure_spi();
-        let cs = configure_cs();
+    fn new(network_id: u8, gateway_addr: u8) -> Result<Self> {
+        let spi = configure_spi()?;
+        let cs = configure_cs()?;
 
-        let rfm = low_power_lab_defaults(Rfm69::new(spi, cs, Delay), network_id, 433_000_000.0)
-            .ok()
-            .unwrap();
-        RfmWrapper(rfm, gateway_addr)
+        let rfm = low_power_lab_defaults(Rfm69::new(spi, cs, Delay), network_id, 433_000_000.0)?;
+        Ok(RfmWrapper(rfm, gateway_addr))
     }
 
-    fn receive(&mut self) -> Vec<u8> {
+    fn receive(&mut self) -> Result<Vec<u8>> {
         let mut buffer = [0; 64];
-        self.0.recv(&mut buffer).ok().unwrap();
+        self.0.recv(&mut buffer)?;
         let packet = Packet::from_bytes(&buffer);
         if packet.ack_requested() && packet.is_to(self.1) {
             let ack = Packet::ack_from(&packet);
-            self.0.send(&mut ack.as_bytes()).ok().unwrap();
+            self.0.send(&mut ack.as_bytes())?;
         }
-        packet.message()
+        Ok(packet.message())
     }
 
-    fn send(&mut self, data: Vec<u8>, to: u8) {
+    fn send(&mut self, data: Vec<u8>, to: u8) -> Result<()> {
         let packet = Packet::new(self.1, to, data, false);
-        self.0.send(&mut packet.as_bytes()).ok().unwrap();
+        self.0.send(&mut packet.as_bytes())?;
+        Ok(())
     }
 
-    fn send_config(&mut self, conf: &Shared<Config>) {
+    fn send_config(&mut self, conf: &Shared<Config>) -> Result<()> {
         let mut conf = block_on(conf.lock());
         let node = conf.node();
         if node.is_config_dirty() {
@@ -49,9 +49,10 @@ impl RfmWrapper {
             buffer.insert(0, PACKET_CONFIG);
             println!("Sending new config");
             println!("{:?}", buffer);
-            self.send(buffer, node.addr());
+            self.send(buffer, node.addr())?;
         }
         conf.node_mut().update_config_dirty(false);
+        Ok(())
     }
 }
 
@@ -61,16 +62,16 @@ pub struct Radio {
 }
 
 impl Radio {
-    pub fn new(shared_conf: Shared<Config>) -> Self {
+    pub fn new(shared_conf: Shared<Config>) -> Result<Self> {
         let rfm: RfmWrapper;
         {
             let conf = block_on(shared_conf.lock());
-            rfm = RfmWrapper::new(conf.network_id(), conf.gateway_addr());
+            rfm = RfmWrapper::new(conf.network_id(), conf.gateway_addr())?;
         }
-        Radio {
+        Ok(Radio {
             rfm: new_shared!(rfm),
             conf: shared_conf,
-        }
+        })
     }
 
     pub fn receiver_channel(&self) -> Receiver<Vec<u8>> {
@@ -80,9 +81,17 @@ impl Radio {
         spawn_blocking(move || {
             let mut rfm = block_on(rfm_clone.lock());
             loop {
-                let buffer = rfm.receive();
+                let result = rfm.receive();
+                if let Err(err) = result {
+                    println!("{}", err);
+                    continue;
+                }
+                let buffer = result.unwrap();
                 if is_config_request(&buffer) {
-                    rfm.send_config(&config_clone);
+                    let result = rfm.send_config(&config_clone);
+                    if let Err(err) = result {
+                        println!("{}", err);
+                    }
                 } else if is_data_update(&buffer) {
                     let result = block_on(s.send(buffer));
                     if let Err(err) = result {
@@ -173,24 +182,22 @@ impl Packet {
     }
 }
 
-fn configure_cs() -> Pin {
-    let mut chip = Chip::new(GPIO_CHIP).unwrap();
-    let output_pin = chip.get_line(CS_PIN_NUM).unwrap();
-    let handle = output_pin
-        .request(LineRequestFlags::OUTPUT, 0, CS_NAME)
-        .unwrap();
-    Pin::new(handle).unwrap()
+fn configure_cs() -> Result<Pin> {
+    let mut chip = Chip::new(GPIO_CHIP)?;
+    let output_pin = chip.get_line(CS_PIN_NUM)?;
+    let handle = output_pin.request(LineRequestFlags::OUTPUT, 0, CS_NAME)?;
+    Ok(Pin::new(handle)?)
 }
 
-fn configure_spi() -> Spidev {
-    let mut spi = Spidev::open(SPI_DEV).unwrap();
+fn configure_spi() -> Result<Spidev> {
+    let mut spi = Spidev::open(SPI_DEV)?;
     let options: SpidevOptions = SpidevOptions::new()
         .bits_per_word(8)
         .max_speed_hz(1_000_000)
         .mode(SpiModeFlags::SPI_MODE_0)
         .build();
-    spi.configure(&options).unwrap();
-    spi
+    spi.configure(&options)?;
+    Ok(spi)
 }
 
 fn is_config_request(data: &[u8]) -> bool {
