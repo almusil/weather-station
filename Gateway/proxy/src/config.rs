@@ -302,6 +302,6 @@ pub async fn read_conf(path: &str) -> Result<Config> {
     let mut config = serde_yaml::from_str::<Config>(&conf_content)?;
     config.node.update_config_dirty(true);
     config.node.init_mqtt_topic();
-    println!("{:?}", config);
+    info!("{:?}", config);
     Ok(config)
 }

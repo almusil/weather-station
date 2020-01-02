@@ -47,8 +47,8 @@ impl RfmWrapper {
         if node.is_config_dirty() {
             let mut buffer = node.to_bytes();
             buffer.insert(0, PACKET_CONFIG);
-            println!("Sending new config");
-            println!("{:?}", buffer);
+            info!("Sending new config");
+            debug!("Config: {:?}", buffer);
             self.send(buffer, node.addr())?;
         }
         conf.node_mut().update_config_dirty(false);
@@ -83,25 +83,27 @@ impl Radio {
             loop {
                 let result = rfm.receive();
                 if let Err(err) = result {
-                    println!("{}", err);
+                    eprintln!("{}", err);
+                    error!("{:?}", err);
                     continue;
                 }
                 let buffer = result.unwrap();
                 if is_config_request(&buffer) {
                     let result = rfm.send_config(&config_clone);
                     if let Err(err) = result {
-                        println!("{}", err);
+                        eprintln!("{}", err);
+                        error!("{:?}", err);
                     }
                 } else if is_data_update(&buffer) {
                     let result = block_on(s.send(buffer));
                     if let Err(err) = result {
                         if err.is_disconnected() {
-                            println!("Disconnected, ending loop");
+                            info!("Disconnected, ending loop");
                             break;
                         }
                     }
                 } else {
-                    println!("Invalid data");
+                    error!("Invalid data");
                 }
             }
         });

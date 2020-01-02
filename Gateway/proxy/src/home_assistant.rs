@@ -22,7 +22,7 @@ impl HomeAssistant {
     }
 
     pub async fn update_state(&self, buffer: &[u8]) -> Result<()> {
-        println!("Data for MQTT {:?}", buffer);
+        debug!("Data for MQTT {:?}", buffer);
         let conf = self.conf.lock().await;
         let digital = buffer[1];
         for pin in conf.node().digital() {
@@ -34,7 +34,6 @@ impl HomeAssistant {
             };
 
             let msg = Message::new(topic, payload, 0);
-            println!("Update status {}", msg);
             self.mqtt.publish(msg).compat().await?;
         }
         for pin in conf.node().analog() {
@@ -46,7 +45,6 @@ impl HomeAssistant {
                 u16::from_be_bytes([buffer[2 + 2 * num as usize], buffer[3 + 2 * num as usize]])
                     .to_string();
             let msg = Message::new(topic, payload, 0);
-            println!("Update status {}", msg);
             self.mqtt.publish(msg).compat().await?;
         }
         let msg = Message::new(
@@ -54,7 +52,6 @@ impl HomeAssistant {
             u16::from_be_bytes([buffer[8], buffer[9]]).to_string(),
             0,
         );
-        println!("Update bat {}", msg);
         self.mqtt.publish(msg).compat().await?;
         Ok(())
     }
@@ -67,7 +64,7 @@ impl HomeAssistant {
         let conf = self.conf.lock().await;
         for (topic, discovery) in &conf.node().discovery() {
             let json = serde_json::to_string(discovery)?;
-            println!("Trying to configure {}, {}", topic, json);
+            debug!("Trying to configure {}, {}", topic, json);
             self.mqtt
                 .publish(Message::new(topic, json, 0))
                 .compat()
@@ -82,7 +79,7 @@ impl HomeAssistant {
     async fn drop_topics(&self) -> Result<()> {
         let conf = self.conf.lock().await;
         for (topic, _) in &conf.node().discovery() {
-            println!("Trying to deconfigure {}", topic);
+            debug!("Trying to deconfigure {}", topic);
             self.mqtt
                 .publish(Message::new(topic, Vec::new(), 0))
                 .compat()
@@ -99,7 +96,8 @@ impl Drop for HomeAssistant {
     fn drop(&mut self) {
         let result = block_on(self.drop_topics());
         if let Err(err) = result {
-            println!("{}", err);
+            eprintln!("{}", err);
+            error!("{:?}", err);
         }
     }
 }
