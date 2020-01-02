@@ -36,10 +36,16 @@ node:
   analog:
     A0:
       number: 0
-      enabled: false
+      enabled: true
+      unit: "V"
+      expr: "{{ (float(value) * 3.3 / (2**12 - 1)) | round(3) }}"
     A1:
       number: 1
-      enabled: false
+      enabled: true
+      unit: "-"
+      expr: "{{ value }}"
     A2:
       number: 2
       enabled: false
+      unit: "-"
+      expr: "{{ value }}"

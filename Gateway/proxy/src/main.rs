@@ -24,8 +24,6 @@ mod home_assistant;
 mod proxy;
 mod radio;
 
-// TODO Expression support in config for analog types, probably https://docs.rs/asciimath/0.8.8/asciimath/
-
 #[async_std::main]
 async fn main() {
     let result = run_main().await;

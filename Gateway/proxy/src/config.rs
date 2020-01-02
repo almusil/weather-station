@@ -246,6 +246,8 @@ impl DigitalPin {
 pub struct AnalogPin {
     pub number: u8,
     pub enabled: bool,
+    pub unit: String,
+    pub expr: String,
     #[serde(skip)]
     pub state_topic: String,
 }
@@ -255,6 +257,8 @@ impl Pin for AnalogPin {
         Discovery::Sensor {
             name,
             state_topic: &self.state_topic,
+            unit_of_measurement: &self.unit,
+            value_template: &self.expr,
         }
     }
 
@@ -292,6 +296,8 @@ pub enum Discovery<'a, 'b> {
     Sensor {
         name: &'a str,
         state_topic: &'b str,
+        unit_of_measurement: &'b str,
+        value_template: &'b str,
     },
 }
 
