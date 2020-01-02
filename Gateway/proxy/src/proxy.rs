@@ -36,19 +36,19 @@ impl Proxy {
             select! {
                 opt = receiver.next().fuse() => match opt {
                     Some(buffer) => self.mqtt.update_state(&buffer).await?,
-                    None => println!("Radio channel is closed"),
+                    None => error!("Radio channel is closed"),
                 },
                 option = mqtt_receiver.next().fuse() => {
                     helper_mqtt_config(self.conf.clone(), option).await?
                 },
                 sig =  shutdown.next().fuse() => match sig {
                     Some(_) => break,
-                    None => println!("Shutdown channel is closed, should not happen")
+                    None => error!("Shutdown channel is closed, should not happen")
                 },
             }
         }
         receiver.close();
-        println!("Main loop exit");
+        info!("Main loop exit");
         Ok(())
     }
 }
@@ -60,7 +60,7 @@ async fn helper_mqtt_config(
     match wrapper {
         Some(result) => {
             if result.is_err() {
-                println!("MQTT stream error");
+                error!("MQTT stream error");
                 return Ok(());
             }
             let message = result
@@ -72,9 +72,9 @@ async fn helper_mqtt_config(
                 conf.node_mut()
                     .update_output(message.topic(), payload == PAYLOAD_ON)?;
             }
-            println!("Message {:?}", message);
+            debug!("Message {:?}", message);
         }
-        None => println!("MQTT channel is closed"),
+        None => error!("MQTT channel is closed"),
     }
     Ok(())
 }
