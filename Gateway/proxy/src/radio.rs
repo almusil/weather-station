@@ -13,49 +13,6 @@ use hal::{Delay, Pin, Spidev};
 use linux_embedded_hal as hal;
 use rfm69::{low_power_lab_defaults, Rfm69};
 
-struct RfmWrapper(Rfm69<Pin, Spidev, Delay>, u8);
-
-impl RfmWrapper {
-    fn new(network_id: u8, gateway_addr: u8) -> Result<Self> {
-        let spi = configure_spi()?;
-        let cs = configure_cs()?;
-
-        let rfm = low_power_lab_defaults(Rfm69::new(spi, cs, Delay), network_id, 433_000_000.0)?;
-        Ok(RfmWrapper(rfm, gateway_addr))
-    }
-
-    fn receive(&mut self) -> Result<Vec<u8>> {
-        let mut buffer = [0; 64];
-        self.0.recv(&mut buffer)?;
-        let packet = Packet::from_bytes(&buffer);
-        if packet.ack_requested() && packet.is_to(self.1) {
-            let ack = Packet::ack_from(&packet);
-            self.0.send(&mut ack.as_bytes())?;
-        }
-        Ok(packet.message())
-    }
-
-    fn send(&mut self, data: Vec<u8>, to: u8) -> Result<()> {
-        let packet = Packet::new(self.1, to, data, false);
-        self.0.send(&mut packet.as_bytes())?;
-        Ok(())
-    }
-
-    fn send_config(&mut self, conf: &Shared<Config>) -> Result<()> {
-        let mut conf = block_on(conf.lock());
-        let node = conf.node();
-        if node.is_config_dirty() {
-            let mut buffer = node.to_bytes();
-            buffer.insert(0, PACKET_CONFIG);
-            info!("Sending new config");
-            debug!("Config: {:?}", buffer);
-            self.send(buffer, node.addr())?;
-        }
-        conf.node_mut().update_config_dirty(false);
-        Ok(())
-    }
-}
-
 pub struct Radio {
     rfm: Shared<RfmWrapper>,
     conf: Shared<Config>,
@@ -108,6 +65,49 @@ impl Radio {
             }
         });
         r
+    }
+}
+
+struct RfmWrapper(Rfm69<Pin, Spidev, Delay>, u8);
+
+impl RfmWrapper {
+    fn new(network_id: u8, gateway_addr: u8) -> Result<Self> {
+        let spi = configure_spi()?;
+        let cs = configure_cs()?;
+
+        let rfm = low_power_lab_defaults(Rfm69::new(spi, cs, Delay), network_id, 433_000_000.0)?;
+        Ok(RfmWrapper(rfm, gateway_addr))
+    }
+
+    fn receive(&mut self) -> Result<Vec<u8>> {
+        let mut buffer = [0; 64];
+        self.0.recv(&mut buffer)?;
+        let packet = Packet::from_bytes(&buffer);
+        if packet.ack_requested() && packet.is_to(self.1) {
+            let ack = Packet::ack_from(&packet);
+            self.0.send(&mut ack.as_bytes())?;
+        }
+        Ok(packet.message())
+    }
+
+    fn send(&mut self, data: Vec<u8>, to: u8) -> Result<()> {
+        let packet = Packet::new(self.1, to, data, false);
+        self.0.send(&mut packet.as_bytes())?;
+        Ok(())
+    }
+
+    fn send_config(&mut self, conf: &Shared<Config>) -> Result<()> {
+        let mut conf = block_on(conf.lock());
+        let node = conf.node();
+        if node.is_config_dirty() {
+            let mut buffer = node.to_bytes();
+            buffer.insert(0, PACKET_CONFIG);
+            info!("Sending new config");
+            debug!("Config: {:?}", buffer);
+            self.send(buffer, node.addr())?;
+        }
+        conf.node_mut().update_config_dirty(false);
+        Ok(())
     }
 }
 
