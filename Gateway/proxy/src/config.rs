@@ -49,10 +49,6 @@ impl Node {
         self.config_dirty
     }
 
-    pub fn update_config_dirty(&mut self, dirty: bool) {
-        self.config_dirty = dirty;
-    }
-
     pub fn update_output(&mut self, topic: &str, new_state: bool) -> Result<()> {
         let pin = self
             .digital
@@ -70,6 +66,10 @@ impl Node {
         }
         self.update_config_dirty(true);
         Ok(())
+    }
+
+    pub fn update_config_dirty(&mut self, dirty: bool) {
+        self.config_dirty = dirty;
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
