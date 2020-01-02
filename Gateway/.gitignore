@@ -2,4 +2,6 @@
 *.log
 
 #Ignore home-assistant conf
-home-assistant
+home-assistant/conf/*
+
+!home-assistant/conf/.gitkeep

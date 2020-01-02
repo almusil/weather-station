@@ -22,7 +22,7 @@ WORKDIR /workspace/proxy
 COPY ./Gateway/proxy/. .
 
 # Compile proxy project
-RUN cargo build --release
+RUN cargo build
 
 FROM arm32v7/debian:stretch-slim
 
@@ -30,19 +30,10 @@ FROM arm32v7/debian:stretch-slim
 RUN apt-get update \
     && \
     apt-get -y install \
-    libssl
+    libssl1.1
 
-# Create groups for gpio and spi
-RUN groupadd -g 1000 proxy1000 \
-    && \
-    groupadd -g 997 gpio \
-    && \
-    groupadd -g 999 spi \
-    && \
-    useradd -u 1000 -g proxy1000 -G gpio,spi proxy1000
+COPY --from=builder /workspace/proxy/target/debug/proxy /usr/local/bin/proxy
 
-USER proxy1000
-
-COPY --from=builder /workspace/proxy/target/release/proxy /usr/local/bin/proxy
+ENV RUST_BACKTRACE=1
 
 CMD ["proxy"]
