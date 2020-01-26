@@ -1,4 +1,4 @@
-FROM arm32v7/rust:slim-stretch AS builder
+FROM rust:slim AS builder
 
 # Set nightly toolchain
 RUN rustup toolchain install nightly \
@@ -24,7 +24,7 @@ COPY ./Gateway/proxy/. .
 # Compile proxy project
 RUN cargo build
 
-FROM arm32v7/debian:stretch-slim
+FROM debian:buster-slim
 
 # Install dependencies
 RUN apt-get update \
