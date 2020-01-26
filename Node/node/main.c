@@ -137,7 +137,7 @@ static void update_config() {
         conf.sleep_time = (packet.data_buffer[1] << 8) | packet.data_buffer[2];
         conf.dio_direction = packet.data_buffer[3];
         conf.dio_value = packet.data_buffer[4];
-        conf.analog = (packet.data_buffer[4] & 0x07) | BAT_CHANNEL;
+        conf.analog = (packet.data_buffer[5] & 0x07) | BAT_CHANNEL;
 
         // Call gpio_setup
         gpio_dio_setup(conf.dio_direction, conf.dio_value);
@@ -151,6 +151,11 @@ static void send_measured_data() {
     uint16_t adc[4] = {0};
 
     adc_convert(conf.analog, adc, 4);
+    // Swap A2 and BAT adc data
+    uint16_t tmp = adc[2];
+    adc[2] = adc[3];
+    adc[3] = tmp;
+
     data[0] = PACKET_DATA;
     data[1] = read_gpio_value();
 
@@ -175,6 +180,7 @@ static void send_measured_data() {
 
 int main(void) {
     setup();
+    delay(1000);
     while (1) {
         uint8_t buffer = {PACKET_CONFIG};
         rfm69_send(GATEWAY_ADDR, &buffer, 1, false);

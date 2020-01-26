@@ -1,8 +1,9 @@
-set verbose on
-set confirm off
-
-file weather-station.elf
-tar remote :4242
+target extended-remote /dev/ttyBmpGdb
+monitor tpwr enable
+monitor connect_srst enable
+monitor swdp_scan
+attach 1
 load
-
+compare-sections
+kill
 quit
