@@ -9,7 +9,7 @@ use futures::channel::mpsc;
 use futures::SinkExt;
 use hal::gpio_cdev::{Chip, LineRequestFlags};
 use hal::spidev::{SpiModeFlags, SpidevOptions};
-use hal::{Delay, Pin, Spidev};
+use hal::{CdevPin, Delay, Spidev};
 use linux_embedded_hal as hal;
 use rfm69::{low_power_lab_defaults, Rfm69};
 
@@ -68,7 +68,7 @@ impl Radio {
     }
 }
 
-struct RfmWrapper(Rfm69<Pin, Spidev, Delay>, u8);
+struct RfmWrapper(Rfm69<CdevPin, Spidev, Delay>, u8);
 
 impl RfmWrapper {
     fn new(network_id: u8, gateway_addr: u8) -> Result<Self> {
@@ -184,11 +184,11 @@ impl Packet {
     }
 }
 
-fn configure_cs() -> Result<Pin> {
+fn configure_cs() -> Result<CdevPin> {
     let mut chip = Chip::new(GPIO_CHIP)?;
     let output_pin = chip.get_line(CS_PIN_NUM)?;
     let handle = output_pin.request(LineRequestFlags::OUTPUT, 0, CS_NAME)?;
-    Ok(Pin::new(handle)?)
+    Ok(CdevPin::new(handle)?)
 }
 
 fn configure_spi() -> Result<Spidev> {
