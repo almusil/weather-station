@@ -1084,9 +1084,8 @@ checksum = "e734e891f5b408a29efbf8309e656876276f49ab6a6ac208600b4419bd893d90"
 
 [[package]]
 name = "rfm69"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23ffafbddcd036c2a5cf68b203695a195df51814f3cdefef39bff821a3529e6b"
+version = "0.2.1"
+source = "git+https://github.com/almusil/rfm69#ca59b379ab5178890347c8cb2759d942be0b6769"
 dependencies = [
  "embedded-hal",
 ]

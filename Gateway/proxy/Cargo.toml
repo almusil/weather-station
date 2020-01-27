@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 linux-embedded-hal = { git = "https://github.com/almusil/linux-embedded-hal", branch = "cdev_sysfs_module", features = ["gpio_cdev"] }
+rfm69 = { git = "https://github.com/almusil/rfm69", branch = "master"}
 
 async-std =  { version = "1.4", features = ["unstable", "attributes"] }
 ctrlc = { version = "3.1", features = ["termination"] }
@@ -17,7 +18,6 @@ serde = { version = "1.0", features = ["derive"] }
 
 failure = "0.1"
 log = "0.4"
-rfm69 = "0.2"
 serde_json = "1.0"
 serde_yaml = "0.8"
 simplelog = "0.7"
