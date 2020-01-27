@@ -1,16 +1,18 @@
 use crate::config::Config;
 use crate::error::Result;
 use crate::util::{
-    Receiver, Shared, CS_NAME, CS_PIN_NUM, GPIO_CHIP, PACKET_CONFIG, PACKET_DATA, SPI_DEV,
+    Receiver, Shared, CS_NAME, CS_PIN_NUM, GPIO_CHIP, INTERRUPT_NAME, INTERRUPT_PIN_NUM,
+    PACKET_CONFIG, PACKET_DATA, SPI_DEV,
 };
 use async_std::sync::{Arc, Mutex};
 use async_std::task::{block_on, spawn_blocking};
 use futures::channel::mpsc;
 use futures::SinkExt;
-use hal::gpio_cdev::{Chip, LineRequestFlags};
+use hal::gpio_cdev::{Chip, EventRequestFlags, LineEventHandle, LineRequestFlags};
 use hal::spidev::{SpiModeFlags, SpidevOptions};
 use hal::{CdevPin, Delay, Spidev};
 use linux_embedded_hal as hal;
+use rfm69::registers::{DioMapping, DioMode, DioPin, DioType, Mode};
 use rfm69::{low_power_lab_defaults, Rfm69};
 
 pub struct Radio {
@@ -68,31 +70,48 @@ impl Radio {
     }
 }
 
-struct RfmWrapper(Rfm69<CdevPin, Spidev, Delay>, u8);
+struct RfmWrapper {
+    rfm: Rfm69<CdevPin, Spidev, Delay>,
+    gateway_addr: u8,
+    interrupt: LineEventHandle,
+}
 
 impl RfmWrapper {
     fn new(network_id: u8, gateway_addr: u8) -> Result<Self> {
+        let mut chip = Chip::new(GPIO_CHIP)?;
         let spi = configure_spi()?;
-        let cs = configure_cs()?;
+        let cs = configure_cs(&mut chip)?;
+        let interrupt = configure_interrupt_pin(&mut chip)?;
 
-        let rfm = low_power_lab_defaults(Rfm69::new(spi, cs, Delay), network_id, 433_000_000.0)?;
-        Ok(RfmWrapper(rfm, gateway_addr))
+        let mut rfm =
+            low_power_lab_defaults(Rfm69::new(spi, cs, Delay), network_id, 433_000_000.0)?;
+        rfm.dio_mapping(DioMapping {
+            pin: DioPin::Dio0,
+            dio_type: DioType::Dio01,
+            dio_mode: DioMode::Rx,
+        })?;
+        Ok(RfmWrapper {
+            rfm,
+            gateway_addr,
+            interrupt,
+        })
     }
 
     fn receive(&mut self) -> Result<Vec<u8>> {
         let mut buffer = [0; 64];
-        self.0.recv(&mut buffer)?;
+        self.wait_packet_ready()?;
+        self.rfm.recv(&mut buffer)?;
         let packet = Packet::from_bytes(&buffer);
-        if packet.ack_requested() && packet.is_to(self.1) {
+        if packet.ack_requested() && packet.is_to(self.gateway_addr) {
             let ack = Packet::ack_from(&packet);
-            self.0.send(&mut ack.as_bytes())?;
+            self.rfm.send(&mut ack.as_bytes())?;
         }
         Ok(packet.message())
     }
 
     fn send(&mut self, data: Vec<u8>, to: u8) -> Result<()> {
-        let packet = Packet::new(self.1, to, data, false);
-        self.0.send(&mut packet.as_bytes())?;
+        let packet = Packet::new(self.gateway_addr, to, data, false);
+        self.rfm.send(&mut packet.as_bytes())?;
         Ok(())
     }
 
@@ -107,6 +126,14 @@ impl RfmWrapper {
             self.send(buffer, node.addr())?;
         }
         conf.node_mut().update_config_dirty(false);
+        Ok(())
+    }
+
+    fn wait_packet_ready(&mut self) -> Result<()> {
+        self.rfm.mode(Mode::Receiver)?;
+        while !self.rfm.is_packet_ready()? {
+            self.interrupt.get_event()?;
+        }
         Ok(())
     }
 }
@@ -184,11 +211,19 @@ impl Packet {
     }
 }
 
-fn configure_cs() -> Result<CdevPin> {
-    let mut chip = Chip::new(GPIO_CHIP)?;
+fn configure_cs(chip: &mut Chip) -> Result<CdevPin> {
     let output_pin = chip.get_line(CS_PIN_NUM)?;
     let handle = output_pin.request(LineRequestFlags::OUTPUT, 0, CS_NAME)?;
     Ok(CdevPin::new(handle)?)
+}
+
+fn configure_interrupt_pin(chip: &mut Chip) -> Result<LineEventHandle> {
+    let input_pin = chip.get_line(INTERRUPT_PIN_NUM)?;
+    Ok(input_pin.events(
+        LineRequestFlags::INPUT,
+        EventRequestFlags::RISING_EDGE,
+        INTERRUPT_NAME,
+    )?)
 }
 
 fn configure_spi() -> Result<Spidev> {
