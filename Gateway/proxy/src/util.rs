@@ -20,7 +20,7 @@ pub const PACKET_DATA: u8 = 0x08;
 pub const BATTERY_CONFIG_TOPIC: &str = "homeassistant/sensor/node/analog_bat/config";
 pub const BATTERY_STATE_TOPIC: &str = "node/analog/bat/state";
 pub const BATTERY_UNIT: &str = "V";
-pub const BATTERY_EXPR: &str = "{{ (float(value) * 3.3 / (2**12 - 1)) | round(3) }}";
+pub const BATTERY_EXPR: &str = "{{ ((float(value) * 3.3 / (2**12 - 1)) / 0.8) | round(3) }}";
 pub const BATTERY_SENSOR: Discovery = Discovery::Sensor {
     name: "Battery",
     state_topic: BATTERY_STATE_TOPIC,
