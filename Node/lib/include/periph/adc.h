@@ -11,7 +11,6 @@
 #define A1 GPIO1
 #define A2 GPIO1
 #define BAT_ADC GPIO0
-#define ADC_ISR_EOCAL (1 << 11)
 
 #define A0_INTER_CHANNEL (1 << 0)
 #define A1_INTER_CHANNEL (1 << 1)

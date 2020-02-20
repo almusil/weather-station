@@ -9,6 +9,9 @@
 #define ACK_TIMEOUT 100
 #define ACK_RETRY_COUNT 5
 
+#define SW_PORT GPIOA
+#define SW_PIN GPIO8
+
 struct config {
     uint16_t sleep_time;
     uint8_t dio_direction;

@@ -78,6 +78,10 @@ static void gpio_setup() {
     /* ADC GPIO setup */
     gpio_mode_setup(ADC_PORT1, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, A0 | A1);
     gpio_mode_setup(ADC_PORT2, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, BAT_ADC | A2);
+
+    /* Battery switch */
+    gpio_mode_setup(SW_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, SW_PIN);
+    gpio_clear(SW_PORT, SW_PIN);
 }
 
 static void setup() {
@@ -150,11 +154,16 @@ static void send_measured_data() {
     uint8_t data[10] = {0};
     uint16_t adc[4] = {0};
 
+    gpio_set(SW_PORT, SW_PIN);
     adc_convert(conf.analog, adc, 4);
-    // Swap A2 and BAT adc data
-    uint16_t tmp = adc[2];
-    adc[2] = adc[3];
-    adc[3] = tmp;
+    gpio_clear(SW_PORT, SW_PIN);
+
+    if(conf.analog & A2_CHANNEL) {
+        // Swap A2 and BAT adc data
+        uint16_t tmp = adc[2];
+        adc[2] = adc[3];
+        adc[3] = tmp;
+    }
 
     data[0] = PACKET_DATA;
     data[1] = read_gpio_value();
