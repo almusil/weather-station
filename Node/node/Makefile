@@ -11,6 +11,7 @@ SHARED_DIR = ../lib
 INCLUDE_DIR = ../lib/include
 CFILES = main.c
 CFILES += periph/low_power.c periph/rtc.c periph/spi.c periph/sys_tick.c periph/usart.c periph/adc.c periph/gpio.c
+CFILES += periph/i2c.c
 CFILES += rfm69.c
 
 DEVICE=stm32l031k6

@@ -9,6 +9,7 @@
 #include <periph/usart.h>
 #include <periph/adc.h>
 #include <periph/gpio.h>
+#include <periph/i2c.h>
 #include <config.h>
 #include <rfm69.h>
 
@@ -55,6 +56,7 @@ static void clock_setup() {
     rcc_periph_clock_enable(RCC_PWR);
     rcc_periph_clock_enable(USART_CLOCK);
     rcc_periph_clock_enable(ADC_CLOCK);
+    rcc_periph_clock_enable(I2C_CLOCK);
 }
 
 
@@ -67,6 +69,12 @@ static void gpio_setup() {
     gpio_clear(RFM69_PORT, RFM69_NSS);
     gpio_mode_setup(RFM69_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, RFM69_NSS);
     gpio_set(RFM69_PORT, RFM69_NSS);
+
+    /* I2C GPIO setup */
+    gpio_mode_setup(I2C_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE, I2C_SDA | I2C_SCL);
+    /* I2C pins have to open-drain */
+    gpio_set_output_options(I2C_PORT, GPIO_OTYPE_OD, GPIO_OSPEED_LOW, I2C_SDA | I2C_SCL);
+    gpio_set_af(I2C_PORT, GPIO_AF1, I2C_SDA | I2C_SCL);
 
     /* RFM69 interrupt setup */
     gpio_mode_setup(RFM69_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, RFM69_INT);
@@ -93,6 +101,7 @@ static void setup() {
     usart_setup(USART_SPEED);
     rfm69_setup();
     adc_setup();
+    i2c_setup();
     gpio_dio_setup(conf.dio_direction, conf.dio_value);
 }
 
@@ -109,6 +118,7 @@ static void before_sleep() {
     rtc_wakeup_setup(conf.sleep_time);
     rfm69_sleep();
     spi_lib_disable();
+    i2c_disable();
 }
 
 static void after_wakeup() {
@@ -117,6 +127,7 @@ static void after_wakeup() {
     usart_interrupt_enable();
     spi_lib_enable();
     rfm69_wakeup();
+    i2c_enable();
     printf("Back from sleep!\n");
 }
 
