@@ -1,6 +1,9 @@
 use crate::config::{Config, Pin};
 use crate::error::Result;
-use crate::util::{Shared, BATTERY_STATE_TOPIC, MQTT_URI, PAYLOAD_OFF, PAYLOAD_ON};
+use crate::util::{
+    Shared, BATTERY_SENSOR, HUMIDITY_SENSOR, MQTT_URI, PAYLOAD_OFF, PAYLOAD_ON, PRESSURE_SENSOR,
+    TEMPERATURE_SENSOR,
+};
 use async_std::task::block_on;
 use futures::compat::{Future01CompatExt, Stream01CompatExt};
 use futures::StreamExt;
@@ -48,8 +51,26 @@ impl HomeAssistant {
             self.mqtt.publish(msg).compat().await?;
         }
         let msg = Message::new(
-            BATTERY_STATE_TOPIC,
+            BATTERY_SENSOR.state_topic(),
             u16::from_be_bytes([buffer[8], buffer[9]]).to_string(),
+            0,
+        );
+        self.mqtt.publish(msg).compat().await?;
+        let msg = Message::new(
+            TEMPERATURE_SENSOR.state_topic(),
+            i16::from_be_bytes([buffer[10], buffer[11]]).to_string(),
+            0,
+        );
+        self.mqtt.publish(msg).compat().await?;
+        let msg = Message::new(
+            PRESSURE_SENSOR.state_topic(),
+            u32::from_be_bytes([0, buffer[12], buffer[13], buffer[14]]).to_string(),
+            0,
+        );
+        self.mqtt.publish(msg).compat().await?;
+        let msg = Message::new(
+            HUMIDITY_SENSOR.state_topic(),
+            u16::from_be_bytes([buffer[15], buffer[16]]).to_string(),
             0,
         );
         self.mqtt.publish(msg).compat().await?;

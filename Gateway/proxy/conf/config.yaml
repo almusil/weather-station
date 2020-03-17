@@ -5,13 +5,6 @@ node:
   sleep_time: 10
   node_addr: 10
   digital:
-    D0:
-      type: Input
-      number: 0
-    D1:
-      type: Output
-      number: 1
-      state: true
     D2:
       type: Input
       number: 2

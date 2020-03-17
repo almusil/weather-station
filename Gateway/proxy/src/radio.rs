@@ -242,5 +242,5 @@ fn is_config_request(data: &[u8]) -> bool {
 }
 
 fn is_data_update(data: &[u8]) -> bool {
-    data.len() == 10 && (data[0] == PACKET_DATA)
+    data.len() == 17 && (data[0] == PACKET_DATA)
 }
