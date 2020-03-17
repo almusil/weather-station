@@ -1,5 +1,9 @@
 use crate::error::{Error, Result};
-use crate::util::{BATTERY_CONFIG_TOPIC, BATTERY_SENSOR, PAYLOAD_OFF, PAYLOAD_ON};
+use crate::util::{
+    BATTERY_CONFIG_TOPIC, BATTERY_SENSOR, HUMIDITY_CONFIG_TOPIC, HUMIDITY_SENSOR, PAYLOAD_OFF,
+    PAYLOAD_ON, PRESSURE_CONFIG_TOPIC, PRESSURE_SENSOR, TEMPERATURE_CONFIG_TOPIC,
+    TEMPERATURE_SENSOR,
+};
 use async_std::fs::File;
 use futures::AsyncReadExt;
 use serde::{Deserialize, Serialize};
@@ -105,6 +109,9 @@ impl Node {
             }
         }
         result.push((BATTERY_CONFIG_TOPIC.to_string(), BATTERY_SENSOR));
+        result.push((TEMPERATURE_CONFIG_TOPIC.to_string(), TEMPERATURE_SENSOR));
+        result.push((PRESSURE_CONFIG_TOPIC.to_string(), PRESSURE_SENSOR));
+        result.push((HUMIDITY_CONFIG_TOPIC.to_string(), HUMIDITY_SENSOR));
         result
     }
 
@@ -220,12 +227,12 @@ impl Pin for DigitalPin {
                 number,
                 state_topic,
                 ..
-            } => (&state_topic, *number),
+            } => (state_topic, *number),
             DigitalPin::Input {
                 number,
                 state_topic,
                 ..
-            } => (&state_topic, *number),
+            } => (state_topic, *number),
         }
     }
 }
@@ -299,6 +306,16 @@ pub enum Discovery<'a, 'b> {
         unit_of_measurement: &'b str,
         value_template: &'b str,
     },
+}
+
+impl<'a, 'b> Discovery<'a, 'b> {
+    pub fn state_topic(&self) -> &'b str {
+        match self {
+            Discovery::Switch { state_topic, .. } => state_topic,
+            Discovery::BinarySensor { state_topic, .. } => state_topic,
+            Discovery::Sensor { state_topic, .. } => state_topic,
+        }
+    }
 }
 
 pub async fn read_conf(path: &str) -> Result<Config> {

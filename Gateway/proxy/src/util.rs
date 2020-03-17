@@ -18,14 +18,33 @@ pub const LOG_MODULE_IGNORE: &str = "paho_mqtt";
 pub const PACKET_CONFIG: u8 = 0x02;
 pub const PACKET_DATA: u8 = 0x08;
 pub const BATTERY_CONFIG_TOPIC: &str = "homeassistant/sensor/node/analog_bat/config";
-pub const BATTERY_STATE_TOPIC: &str = "node/analog/bat/state";
-pub const BATTERY_UNIT: &str = "V";
-pub const BATTERY_EXPR: &str = "{{ ((float(value) * 3.3 / (2**12 - 1)) / 0.8) | round(3) }}";
 pub const BATTERY_SENSOR: Discovery = Discovery::Sensor {
     name: "Battery",
-    state_topic: BATTERY_STATE_TOPIC,
-    unit_of_measurement: BATTERY_UNIT,
-    value_template: BATTERY_EXPR,
+    state_topic: "node/analog/bat/state",
+    unit_of_measurement: "V",
+    value_template: "{{ ((float(value) * 3.3 / (2**12 - 1)) / 0.8) | round(3) }}",
+};
+pub const WEATHER_SENSOR_TEMPLATE: &str = "{{ (float(value) / 100) | round(2) }}";
+pub const TEMPERATURE_CONFIG_TOPIC: &str = "homeassistant/sensor/node/temperature/config";
+pub const TEMPERATURE_SENSOR: Discovery = Discovery::Sensor {
+    name: "Temperature",
+    state_topic: "node/analog/temperature/state",
+    unit_of_measurement: "°C",
+    value_template: WEATHER_SENSOR_TEMPLATE,
+};
+pub const PRESSURE_CONFIG_TOPIC: &str = "homeassistant/sensor/node/pressure/config";
+pub const PRESSURE_SENSOR: Discovery = Discovery::Sensor {
+    name: "Pressure",
+    state_topic: "node/analog/pressure/state",
+    unit_of_measurement: "hPa",
+    value_template: WEATHER_SENSOR_TEMPLATE,
+};
+pub const HUMIDITY_CONFIG_TOPIC: &str = "homeassistant/sensor/node/humidity/config";
+pub const HUMIDITY_SENSOR: Discovery = Discovery::Sensor {
+    name: "Humidity",
+    state_topic: "node/analog/humidity/state",
+    unit_of_measurement: "%",
+    value_template: WEATHER_SENSOR_TEMPLATE,
 };
 
 pub type Shared<T> = Arc<Mutex<T>>;

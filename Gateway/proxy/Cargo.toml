@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-linux-embedded-hal = { git = "https://github.com/almusil/linux-embedded-hal", branch = "cdev_sysfs_module", features = ["gpio_cdev"] }
+linux-embedded-hal = { git = "https://github.com/rust-embedded/linux-embedded-hal", branch = "master" }
 rfm69 = { git = "https://github.com/almusil/rfm69", branch = "master"}
 
 async-std =  { version = "1.5", features = ["unstable", "attributes"] }
