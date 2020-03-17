@@ -12,6 +12,7 @@
 #include <periph/i2c.h>
 #include <config.h>
 #include <rfm69.h>
+#include <bme280.h>
 
 static struct config conf = {
         .sleep_time = 10,
@@ -102,6 +103,7 @@ static void setup() {
     rfm69_setup();
     adc_setup();
     i2c_setup();
+    bme_setup();
     gpio_dio_setup(conf.dio_direction, conf.dio_value);
 }
 
@@ -162,14 +164,15 @@ static void update_config() {
 
 static void send_measured_data() {
     printf("Sending measured data!\n");
-    uint8_t data[10] = {0};
+    uint8_t data[17] = {0};
     uint16_t adc[4] = {0};
 
+    bme_start_measurement();
     gpio_set(SW_PORT, SW_PIN);
     adc_convert(conf.analog, adc, 4);
     gpio_clear(SW_PORT, SW_PIN);
 
-    if(conf.analog & A2_CHANNEL) {
+    if (conf.analog & A2_CHANNEL) {
         // Swap A2 and BAT adc data
         uint16_t tmp = adc[2];
         adc[2] = adc[3];
@@ -184,8 +187,23 @@ static void send_measured_data() {
         data[3 + i * 2] = (adc[i] & 0xff);
     }
 
+    while (!bme_measure_done());
+
+    int16_t temp = bme_get_temp();
+    data[10] = temp >> 8;
+    data[11] = temp & 0xff;
+
+    uint32_t press = bme_get_pressure();
+    data[12] = press >> 16;
+    data[13] = press >> 8;
+    data[14] = press & 0xff;
+
+    uint16_t humidity = bme_get_humidity();
+    data[15] = humidity >> 8;
+    data[16] = humidity & 0xff;
+
     for (uint8_t i = 0; i < ACK_RETRY_COUNT; i++) {
-        rfm69_send(GATEWAY_ADDR, &data, 10, true);
+        rfm69_send(GATEWAY_ADDR, &data, 17, true);
         uint64_t now = get_millis();
         bool done = rfm69_ack_received(GATEWAY_ADDR);
         while (!done && get_millis() - now < ACK_TIMEOUT) {
