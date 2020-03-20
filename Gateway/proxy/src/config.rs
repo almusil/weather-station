@@ -78,7 +78,7 @@ impl Node {
 
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(5);
-        bytes.extend_from_slice(&self.sleep_time.to_be_bytes());
+        bytes.extend_from_slice(&self.sleep_time.to_le_bytes());
 
         let mut digital_direction = 0;
         let mut digital_value = 0;

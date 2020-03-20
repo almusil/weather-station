@@ -1,4 +1,5 @@
 use crate::config::{read_conf, Config};
+use crate::data::Data;
 use crate::error::{Error, Result};
 use crate::home_assistant::HomeAssistant;
 use crate::radio::Radio;
@@ -6,6 +7,7 @@ use crate::util::{Receiver, Shared, PAYLOAD_ON};
 use async_std::sync::{Arc, Mutex};
 use futures::{select, FutureExt, StreamExt};
 use paho_mqtt::Message;
+use std::convert::TryFrom;
 use std::result::Result as StdResult;
 
 pub struct Proxy {
@@ -35,7 +37,10 @@ impl Proxy {
         loop {
             select! {
                 opt = receiver.next().fuse() => match opt {
-                    Some(buffer) => self.mqtt.update_state(&buffer).await?,
+                    Some(buffer) => {
+                        let data = Data::try_from(&buffer[..])?;
+                        self.mqtt.update_state(&data).await?;
+                    },
                     None => error!("Radio channel is closed"),
                 },
                 option = mqtt_receiver.next().fuse() => {

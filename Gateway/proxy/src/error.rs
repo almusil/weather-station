@@ -1,3 +1,4 @@
+use bincode::Error as BincodeError;
 use failure::{Backtrace, Fail, SyncFailure};
 use linux_embedded_hal::gpio_cdev::errors::Error as CdevError;
 use paho_mqtt::errors::MqttError;
@@ -25,6 +26,8 @@ pub enum Error {
     MqttError(#[fail(cause)] MqttError, Backtrace),
     #[fail(display = "Serde JSON error: {}", _0)]
     SerdeJsonError(#[fail(cause)] SerdeJsonError, Backtrace),
+    #[fail(display = "Bincode error: {}", _0)]
+    BincodeError(#[fail(cause)] BincodeError, Backtrace),
     #[fail(display = "Result (Err=()) error: {}", _0)]
     ResultError(&'static str, Backtrace),
 }
@@ -72,5 +75,11 @@ impl From<MqttError> for Error {
 impl From<SerdeJsonError> for Error {
     fn from(err: SerdeJsonError) -> Self {
         Error::SerdeJsonError(err, Backtrace::new())
+    }
+}
+
+impl From<BincodeError> for Error {
+    fn from(err: BincodeError) -> Self {
+        Error::BincodeError(err, Backtrace::new())
     }
 }
