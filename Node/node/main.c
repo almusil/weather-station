@@ -151,7 +151,7 @@ static void update_config() {
         packet.data_len == CONFIG_LENGTH + 1 &&
         packet.data_buffer[0] == PACKET_CONFIG) {
         // Update conf
-        conf.sleep_time = (packet.data_buffer[1] << 8) | packet.data_buffer[2];
+        conf.sleep_time = (packet.data_buffer[2] << 8) | packet.data_buffer[1];
         conf.dio_direction = packet.data_buffer[3];
         conf.dio_value = packet.data_buffer[4];
         conf.analog = (packet.data_buffer[5] & 0x07) | BAT_CHANNEL;
@@ -164,7 +164,7 @@ static void update_config() {
 
 static void send_measured_data() {
     printf("Sending measured data!\n");
-    uint8_t data[17] = {0};
+    union packet_t packet = {0};
     uint16_t adc[4] = {0};
 
     bme_start_measurement();
@@ -179,31 +179,23 @@ static void send_measured_data() {
         adc[3] = tmp;
     }
 
-    data[0] = PACKET_DATA;
-    data[1] = read_gpio_value();
+    packet.data.packet_type = PACKET_DATA;
+    packet.data.gpio_value = read_gpio_value();
 
     for (uint8_t i = 0; i < 4; i++) {
-        data[2 + i * 2] = (adc[i] >> 8);
-        data[3 + i * 2] = (adc[i] & 0xff);
+        packet.data.adc_value[i] = adc[i];
     }
 
     while (!bme_measure_done());
 
-    int16_t temp = bme_get_temp();
-    data[10] = temp >> 8;
-    data[11] = temp & 0xff;
+    packet.data.temperature = bme_get_temp();
+    packet.data.pressure = bme_get_pressure();
 
-    uint32_t press = bme_get_pressure();
-    data[12] = press >> 16;
-    data[13] = press >> 8;
-    data[14] = press & 0xff;
+    packet.data.humidity = bme_get_humidity();
 
-    uint16_t humidity = bme_get_humidity();
-    data[15] = humidity >> 8;
-    data[16] = humidity & 0xff;
 
     for (uint8_t i = 0; i < ACK_RETRY_COUNT; i++) {
-        rfm69_send(GATEWAY_ADDR, &data, 17, true);
+        rfm69_send(GATEWAY_ADDR, &packet.bytes, sizeof(union packet_t), true);
         uint64_t now = get_millis();
         bool done = rfm69_ack_received(GATEWAY_ADDR);
         while (!done && get_millis() - now < ACK_TIMEOUT) {

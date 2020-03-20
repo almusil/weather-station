@@ -2,20 +2,19 @@
 extern crate failure;
 #[macro_use]
 extern crate log;
-extern crate simplelog;
 
 use crate::error::Result;
 use crate::proxy::Proxy;
 use crate::util::{Sender, Shared, CONF_PATH, LOG_MODULE_IGNORE, LOG_PATH, LOG_TIME_FORMAT};
 use async_std::sync::{Arc, Mutex};
 use async_std::task::block_on;
-use ctrlc;
 use futures::channel::mpsc;
 use futures::SinkExt;
 use simplelog::{ConfigBuilder, LevelFilter, WriteLogger};
 use std::fs::File;
 
 mod config;
+mod data;
 mod error;
 
 #[macro_use]

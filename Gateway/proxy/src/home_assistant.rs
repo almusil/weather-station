@@ -1,4 +1,5 @@
 use crate::config::{Config, Pin};
+use crate::data::Data;
 use crate::error::Result;
 use crate::util::{
     Shared, BATTERY_SENSOR, HUMIDITY_SENSOR, MQTT_URI, PAYLOAD_OFF, PAYLOAD_ON, PRESSURE_SENSOR,
@@ -9,6 +10,23 @@ use futures::compat::{Future01CompatExt, Stream01CompatExt};
 use futures::StreamExt;
 use paho_mqtt::{AsyncClient, AsyncClientBuilder, ConnectOptions, Message};
 use std::result::Result as StdResult;
+
+macro_rules! mqtt_publish {
+    ($mqtt:expr,$topic:expr, $payload:expr) => {
+        let msg = Message::new($topic, $payload, 0);
+        $mqtt.publish(msg).compat().await?;
+    };
+}
+
+macro_rules! convert_digital {
+    ($num:ident,$digital:ident) => {
+        if (1 << $num) & $digital != 0 {
+            PAYLOAD_ON
+        } else {
+            PAYLOAD_OFF
+        };
+    };
+}
 
 pub struct HomeAssistant {
     mqtt: AsyncClient,
@@ -24,56 +42,41 @@ impl HomeAssistant {
         Ok(result)
     }
 
-    pub async fn update_state(&self, buffer: &[u8]) -> Result<()> {
-        debug!("Data for MQTT {:?}", buffer);
+    pub async fn update_state(&self, data: &Data) -> Result<()> {
+        debug!("Data for MQTT {:?}", data);
         let conf = self.conf.lock().await;
-        let digital = buffer[1];
+        let digital = data.gpio_value;
         for pin in conf.node().digital() {
             let (topic, num) = pin.topic_number_tuple();
-            let payload = if (1 << num) & digital != 0 {
-                PAYLOAD_ON
-            } else {
-                PAYLOAD_OFF
-            };
-
-            let msg = Message::new(topic, payload, 0);
-            self.mqtt.publish(msg).compat().await?;
+            mqtt_publish!(self.mqtt, topic, convert_digital!(num, digital));
         }
         for pin in conf.node().analog() {
             if !pin.enabled {
                 continue;
             }
             let (topic, num) = pin.topic_number_tuple();
-            let payload =
-                u16::from_be_bytes([buffer[2 + 2 * num as usize], buffer[3 + 2 * num as usize]])
-                    .to_string();
-            let msg = Message::new(topic, payload, 0);
-            self.mqtt.publish(msg).compat().await?;
+            mqtt_publish!(self.mqtt, topic, data.adc_value[num as usize].to_string());
         }
-        let msg = Message::new(
+        mqtt_publish!(
+            self.mqtt,
             BATTERY_SENSOR.state_topic(),
-            u16::from_be_bytes([buffer[8], buffer[9]]).to_string(),
-            0,
+            data.bat_value.to_string()
         );
-        self.mqtt.publish(msg).compat().await?;
-        let msg = Message::new(
+        mqtt_publish!(
+            self.mqtt,
             TEMPERATURE_SENSOR.state_topic(),
-            i16::from_be_bytes([buffer[10], buffer[11]]).to_string(),
-            0,
+            data.temperature.to_string()
         );
-        self.mqtt.publish(msg).compat().await?;
-        let msg = Message::new(
+        mqtt_publish!(
+            self.mqtt,
             PRESSURE_SENSOR.state_topic(),
-            u32::from_be_bytes([0, buffer[12], buffer[13], buffer[14]]).to_string(),
-            0,
+            data.pressure.to_string()
         );
-        self.mqtt.publish(msg).compat().await?;
-        let msg = Message::new(
+        mqtt_publish!(
+            self.mqtt,
             HUMIDITY_SENSOR.state_topic(),
-            u16::from_be_bytes([buffer[15], buffer[16]]).to_string(),
-            0,
+            data.humidity.to_string()
         );
-        self.mqtt.publish(msg).compat().await?;
         Ok(())
     }
 
