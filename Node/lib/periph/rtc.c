@@ -18,13 +18,15 @@ void rtc_setup() {
     RCC_CSR &= ~(RCC_CSR_RTCSEL_MASK << RCC_CSR_RTCSEL_SHIFT);
     RCC_CSR |= (RCC_CSR_RTCSEL_LSI << RCC_CSR_RTCSEL_SHIFT);
 
+    rtc_set_prescaler(0x120, 0x7F);
+
     // Enable RTC clock
     RCC_CSR |= RCC_CSR_RTCEN;
 }
 
 void rtc_wakeup_setup(uint16_t seconds) {
     rtc_unlock();
-    rtc_set_wakeup_time(seconds - 1, RTC_CR_WUCLKSEL_SPRE);
+    rtc_set_wakeup_time(seconds, RTC_CR_WUCLKSEL_SPRE);
     rtc_interrupt_setup();
     rtc_lock();
 }
