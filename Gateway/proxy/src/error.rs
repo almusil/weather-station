@@ -5,6 +5,7 @@ use paho_mqtt::errors::MqttError;
 use rfm69::Error as RfmError;
 use serde_json::Error as SerdeJsonError;
 use serde_yaml::Error as SerdeYamlError;
+use std::env::VarError;
 use std::io::Error as IoError;
 use std::result;
 
@@ -36,6 +37,8 @@ pub enum Error {
         index: usize,
         backtrace: Backtrace,
     },
+    #[fail(display = "Env variable error: {}", _0)]
+    VarError(#[fail(cause)] VarError, Backtrace),
 }
 
 impl Error {
@@ -95,5 +98,11 @@ impl From<SerdeJsonError> for Error {
 impl From<BincodeError> for Error {
     fn from(err: BincodeError) -> Self {
         Error::BincodeError(err, Backtrace::new())
+    }
+}
+
+impl From<VarError> for Error {
+    fn from(err: VarError) -> Self {
+        Error::VarError(err, Backtrace::new())
     }
 }

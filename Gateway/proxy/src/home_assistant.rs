@@ -18,16 +18,6 @@ macro_rules! mqtt_publish {
     };
 }
 
-macro_rules! convert_digital {
-    ($num:ident,$digital:ident) => {
-        if (1 << $num) & $digital != 0 {
-            PAYLOAD_ON
-        } else {
-            PAYLOAD_OFF
-        };
-    };
-}
-
 pub struct HomeAssistant {
     mqtt: AsyncClient,
     conf: Shared<Config>,
