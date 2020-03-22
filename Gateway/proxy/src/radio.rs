@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::util::{
     Receiver, Shared, CS_NAME, CS_PIN_NUM, GPIO_CHIP, INTERRUPT_NAME, INTERRUPT_PIN_NUM,
     PACKET_CONFIG, PACKET_DATA, SPI_DEV,
@@ -101,7 +101,7 @@ impl RfmWrapper {
         let mut buffer = [0; 64];
         self.wait_packet_ready()?;
         self.rfm.recv(&mut buffer)?;
-        let packet = Packet::from_bytes(&buffer);
+        let packet = Packet::from_bytes(&buffer)?;
         if packet.ack_requested() && packet.is_to(self.gateway_addr) {
             let ack = Packet::ack_from(&packet);
             self.rfm.send(&mut ack.as_bytes())?;
@@ -174,22 +174,25 @@ impl Packet {
         }
     }
 
-    pub fn from_bytes(buffer: &[u8]) -> Self {
-        let len = (buffer[0] - 3) as usize;
+    pub fn from_bytes(buffer: &[u8]) -> Result<Self> {
+        let len = buffer[0] as usize;
         let to = buffer[1];
         let from = buffer[2];
         let control = buffer[3];
+        if len >= buffer.len() {
+            return Err(Error::new_index_out_of_range(buffer.len(), len));
+        }
         let message = if len > 0 {
-            Vec::from(&buffer[4..4 + len])
+            Vec::from(&buffer[4..=len])
         } else {
             Vec::new()
         };
-        Packet {
+        Ok(Packet {
             from,
             to,
             message,
             control,
-        }
+        })
     }
 
     pub fn ack_requested(&self) -> bool {

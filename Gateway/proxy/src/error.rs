@@ -30,6 +30,12 @@ pub enum Error {
     BincodeError(#[fail(cause)] BincodeError, Backtrace),
     #[fail(display = "Result (Err=()) error: {}", _0)]
     ResultError(&'static str, Backtrace),
+    #[fail(display = "IndexOutOfRange, buffer size {}, index {}", size, index)]
+    IndexOutOfRange {
+        size: usize,
+        index: usize,
+        backtrace: Backtrace,
+    },
 }
 
 impl Error {
@@ -39,6 +45,14 @@ impl Error {
 
     pub fn new_result(msg: &'static str) -> Self {
         Error::ResultError(msg, Backtrace::new())
+    }
+
+    pub fn new_index_out_of_range(size: usize, index: usize) -> Self {
+        Error::IndexOutOfRange {
+            size,
+            index,
+            backtrace: Backtrace::new(),
+        }
     }
 }
 
