@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 #[macro_use]
 extern crate failure;
 #[macro_use]
@@ -22,6 +23,7 @@ mod util;
 mod home_assistant;
 mod proxy;
 mod radio;
+mod vutbr;
 
 #[async_std::main]
 async fn main() {

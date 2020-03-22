@@ -11,6 +11,8 @@ pub const INTERRUPT_PIN_NUM: u32 = 24;
 pub const PAYLOAD_ON: &str = "1";
 pub const PAYLOAD_OFF: &str = "0";
 pub const MQTT_URI: &str = "tcp://127.0.0.1:1883";
+pub const VUTBR_URI_ENV: &str = "VUTBR_URI";
+pub const VUTBR_TOPIC: &str = "vutbr/xmusil/223202";
 pub const CONF_PATH: &str = "/proxy/conf/config.yaml";
 pub const LOG_PATH: &str = "/proxy/log/proxy.log";
 pub const LOG_TIME_FORMAT: &str = "%d.%m.%Y %H:%M:%S.%f";
@@ -55,5 +57,16 @@ pub type Sender<T> = mpsc::UnboundedSender<T>;
 macro_rules! new_shared {
     ($data:expr) => {
         Arc::new(Mutex::new($data))
+    };
+}
+
+#[macro_export]
+macro_rules! convert_digital {
+    ($num:ident,$digital:ident) => {
+        if (1 << $num) & $digital != 0 {
+            PAYLOAD_ON
+        } else {
+            PAYLOAD_OFF
+        };
     };
 }

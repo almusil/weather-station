@@ -4,6 +4,7 @@ use crate::error::{Error, Result};
 use crate::home_assistant::HomeAssistant;
 use crate::radio::Radio;
 use crate::util::{Receiver, Shared, PAYLOAD_ON};
+use crate::vutbr::VutBr;
 use async_std::sync::{Arc, Mutex};
 use futures::{select, FutureExt, StreamExt};
 use paho_mqtt::Message;
@@ -15,6 +16,7 @@ pub struct Proxy {
     shutdown: Receiver<bool>,
     radio: Radio,
     mqtt: HomeAssistant,
+    vutbr: VutBr,
 }
 
 impl Proxy {
@@ -22,11 +24,13 @@ impl Proxy {
         let conf = new_shared!(read_conf(conf_path).await?);
         let radio = Radio::new(conf.clone())?;
         let mqtt = HomeAssistant::new(conf.clone()).await?;
+        let vutbr = VutBr::new().await?;
         Ok(Proxy {
             conf,
             shutdown,
             radio,
             mqtt,
+            vutbr,
         })
     }
 
@@ -40,6 +44,7 @@ impl Proxy {
                     Some(buffer) => {
                         let data = Data::try_from(&buffer[..])?;
                         self.mqtt.update_state(&data).await?;
+                        self.vutbr.update_state(&data).await?;
                     },
                     None => error!("Radio channel is closed"),
                 },
