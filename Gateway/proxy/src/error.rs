@@ -14,7 +14,7 @@ pub type Result<T> = result::Result<T, Error>;
 #[derive(Debug, Fail)]
 pub enum Error {
     #[fail(display = "Radio error: {}", _0)]
-    RadioError(&'static str, Backtrace),
+    RadioError(String, Backtrace),
     #[fail(display = "Character device GPIO error: {}", _0)]
     CdevGpioError(#[fail(cause)] SyncFailure<CdevError>, Backtrace),
     #[fail(display = "IO error: {}", _0)]
@@ -59,9 +59,9 @@ impl Error {
     }
 }
 
-impl From<RfmError> for Error {
-    fn from(err: RfmError) -> Self {
-        Error::RadioError(err.0, Backtrace::new())
+impl From<RfmError<CdevError, IoError>> for Error {
+    fn from(err: RfmError<CdevError, IoError>) -> Self {
+        Error::RadioError(format!("{:?}", err), Backtrace::new())
     }
 }
 
