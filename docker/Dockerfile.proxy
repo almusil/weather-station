@@ -18,8 +18,19 @@ RUN apt-get update \
 
 WORKDIR /workspace/proxy
 
-# Copy MQTT client
-COPY ./Gateway/proxy/. .
+# Hack to cache dependency build first
+COPY ./Gateway/proxy/Cargo.toml .
+COPY ./Gateway/proxy/Cargo.lock .
+
+RUN sed -i 's#src/main.rs#dummy.rs#' Cargo.toml
+RUN echo 'fn main() {}' > dummy.rs
+
+RUN cargo build
+
+RUN sed -i 's#dummy.rs#src/main.rs#' Cargo.toml
+
+# Copy rest of the proxy source files
+COPY ./Gateway/proxy/src/. ./src/
 
 # Compile proxy project
 RUN cargo build
